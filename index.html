@@ -281,11 +281,11 @@
   <div class="btn-group" id="view-btns">
     <button class="btn" data-view="r8">8회 득표율</button>
     <button class="btn" data-view="r9">9회 득표율</button>
-    <button class="btn active" data-view="delta">득표율 증감</button>
+    <button class="btn" data-view="delta">득표율 증감</button>
     <button class="btn" data-view="vdelta">득표수 증감</button>
     <button class="btn" data-view="v8">8회 득표수</button>
     <button class="btn" data-view="v9">9회 득표수</button>
-    <button class="btn" data-view="vpos">득표수 증가만</button>
+    <button class="btn active" data-view="vpos">득표수 증가만</button>
   </div>
   <div style="width:1px;background:#e0e0e0;height:20px;margin:0 8px"></div>
   <span class="label">단위</span>
@@ -351,7 +351,7 @@
 const GEO_URL  = "public/geo/seoul-dong.geojson";
 const DATA_URL = "public/data/seoul_compare.json";
 
-let geoData, compareData, guData, currentView = "delta", currentLevel = "dong";
+let geoData, compareData, guData, currentView = "vpos", currentLevel = "dong";
 let colorScale, valueAccessor;
 
 // ── 색상 스케일 ────────────────────────────────────────────────────
