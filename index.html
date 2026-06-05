@@ -209,6 +209,62 @@
     z-index: 9999;
     display: none;
   }
+
+  /* ── 모바일 반응형 ─────────────────────────────────────── */
+  @media (max-width: 640px) {
+    header { padding: 10px 14px; }
+    header h1 { font-size: 0.88rem; line-height: 1.3; }
+    header .sub { display: none; }
+
+    .toolbar {
+      padding: 7px 10px;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .toolbar::-webkit-scrollbar { display: none; }
+    .toolbar .label { display: none; }
+    .toolbar .spacer { display: none; }
+    .summary-chips { display: none; }
+
+    .btn-group { flex-shrink: 0; }
+    .btn { padding: 5px 10px; font-size: 0.78rem; white-space: nowrap; }
+    .toolbar > div[style] { display: none; } /* 구분선 숨김 */
+
+    main { flex-direction: column; overflow: visible; }
+
+    .map-area {
+      width: 100%;
+      height: 52vw;
+      min-height: 240px;
+      max-height: 340px;
+      flex-shrink: 0;
+    }
+
+    .sidebar {
+      width: 100%;
+      border-left: none;
+      border-top: 1px solid #e0e0e0;
+      flex-direction: column;
+      overflow-y: auto;
+      max-height: none;
+    }
+
+    .coverage-note { font-size: 0.72rem; padding: 6px 12px; }
+    .legend-box { padding: 10px 12px; }
+    .legend-title { font-size: 0.72rem; }
+    .legend-ticks { font-size: 0.68rem; }
+
+    .info-box { padding: 10px 12px; }
+    .info-title { font-size: 0.72rem; }
+    .hover-card { padding: 10px; }
+    .hover-card .dong-name { font-size: 0.95rem; }
+    .stat-row { font-size: 0.78rem; padding: 4px 0; }
+    .top-item { font-size: 0.78rem; padding: 3px 0; }
+    .top-item .val { font-size: 0.75rem; }
+  }
 </style>
 </head>
 <body>
@@ -432,6 +488,15 @@ function render() {
         showTooltip(event, f, d);
         showCard(f, d);
       }
+    })
+    .on("click", (event, f) => {
+      if (currentLevel === "gu") {
+        showCardGu(f.properties.sggnm, guData?.[f.properties.sggnm]);
+      } else {
+        showCard(f, compareData[f.properties.adm_cd]);
+      }
+      hideTooltip();
+      document.getElementById("hover-card").scrollIntoView({ behavior: "smooth", block: "nearest" });
     })
     .on("mouseleave", hideTooltip);
 
