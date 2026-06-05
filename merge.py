@@ -22,7 +22,12 @@ except Exception:
     pass
 
 CSV_8 = Path("data/서울시장8회_동별개표결과.csv")
-CSV_9 = Path("../nec_prevote/data/서울시장_동별개표결과_전체_20260605_0139.csv")
+def find_latest_9th():
+    d = Path("../nec_prevote/data")
+    files = sorted(d.glob("서울시장_동별개표결과_전체_*.csv"), reverse=True)
+    if not files: raise FileNotFoundError("9회 CSV 없음")
+    return files[0]
+CSV_9 = find_latest_9th()
 OUT   = Path("data/서울시장_8회9회_동별비교.csv")
 
 
