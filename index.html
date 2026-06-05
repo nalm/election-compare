@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오세훈 득표율 변화 — 8회·9회 지방선거 비교</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.3px; }
+  header .sub { font-size: 0.78rem; color: #aaa; margin-top: 2px; }
+
+  .toolbar {
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .toolbar .label { font-size: 0.8rem; color: #666; margin-right: 4px; }
+  .btn-group { display: flex; gap: 4px; }
+  .btn {
+    padding: 5px 14px;
+    border: 1.5px solid #ccc;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all .15s;
+    color: #444;
+  }
+  .btn:hover { border-color: #666; color: #111; }
+  .btn.active { background: #1a1a2e; border-color: #1a1a2e; color: #fff; font-weight: 600; }
+
+  .toolbar .spacer { flex: 1; }
+  .summary-chips { display: flex; gap: 10px; }
+  .chip {
+    background: #f0f0f0;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    color: #555;
+  }
+  .chip b { color: #1a1a2e; }
+
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .map-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #map-svg {
+    width: 100%;
+    height: 100%;
+  }
+  .dong-path {
+    stroke: #fff;
+    stroke-width: 0.4px;
+    transition: opacity .1s;
+    cursor: pointer;
+  }
+  .dong-path:hover { stroke: #333; stroke-width: 1.2px; opacity: 0.9; }
+
+  .sidebar {
+    width: 280px;
+    background: #fff;
+    border-left: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .coverage-note {
+    padding: 8px 16px;
+    background: #fffbe6;
+    border-bottom: 1px solid #f0e68c;
+    font-size: 0.74rem;
+    color: #7a6a00;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .coverage-note.ok {
+    background: #f0faf0;
+    border-color: #b0d8b0;
+    color: #2a6a2a;
+  }
+
+  .legend-box {
+    padding: 16px;
+    border-bottom: 1px solid #eee;
+  }
+  .legend-title { font-size: 0.78rem; color: #888; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  #legend-bar {
+    width: 100%;
+    height: 12px;
+    border-radius: 3px;
+    margin-bottom: 4px;
+  }
+  .legend-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: #888;
+  }
+
+  .info-box {
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+  }
+  .info-title {
+    font-size: 0.78rem;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+
+  .hover-card {
+    display: none;
+    background: #f9f9f9;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .hover-card.visible { display: block; }
+  .hover-card .dong-name { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 8px; }
+  .hover-card .gu-name { font-size: 0.78rem; color: #888; margin-bottom: 10px; margin-top: -6px; }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 0.82rem;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #666; }
+  .stat-val { font-weight: 600; color: #1a1a2e; }
+  .stat-val.up { color: #0066cc; }
+  .stat-val.down { color: #cc2200; }
+
+  .delta-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .delta-badge.neg { background: #fff0ee; color: #cc2200; }
+  .delta-badge.pos { background: #eef4ff; color: #0066cc; }
+
+  .top-list { margin-top: 8px; }
+  .top-list h4 { font-size: 0.78rem; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .top-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+  }
+  .top-item:hover { background: #f9f9f9; }
+  .top-item .rank { width: 18px; text-align: right; color: #bbb; font-size: 0.72rem; }
+  .top-item .name { flex: 1; color: #333; }
+  .top-item .val { font-weight: 600; font-size: 0.78rem; }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(26,26,46,0.9);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 5px;
+    font-size: 0.78rem;
+    z-index: 9999;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>오세훈 득표율 변화 — 8회·9회 지방선거 비교</h1>
+    <div class="sub">서울특별시장 선거 · 동(행정동)별 · 8회(2022-06-01) vs 9회(2026-06-03)</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <span class="label">보기</span>
+  <div class="btn-group" id="view-btns">
+    <button class="btn" data-view="r8">8회 득표율</button>
+    <button class="btn" data-view="r9">9회 득표율</button>
+    <button class="btn active" data-view="delta">득표율 증감</button>
+    <button class="btn" data-view="vdelta">득표수 증감</button>
+    <button class="btn" data-view="v8">8회 득표수</button>
+    <button class="btn" data-view="v9">9회 득표수</button>
+    <button class="btn" data-view="vpos">득표수 증가만</button>
+  </div>
+  <div style="width:1px;background:#e0e0e0;height:20px;margin:0 8px"></div>
+  <span class="label">단위</span>
+  <div class="btn-group" id="level-btns">
+    <button class="btn active" data-level="dong">동별</button>
+    <button class="btn" data-level="gu">구별</button>
+  </div>
+  <div class="spacer"></div>
+  <div class="summary-chips" id="summary-chips"></div>
+</div>
+
+<main>
+  <div class="map-area">
+    <svg id="map-svg"></svg>
+  </div>
+  <aside class="sidebar">
+    <div class="coverage-note" id="coverage-note">
+      ⚠ 동별: 관내투표 기준 (관외사전투표 ~12% 미포함, 득표율 약 +1~2%p 과대)
+    </div>
+    <div class="legend-box">
+      <div class="legend-title" id="legend-title">득표율 증감 (%p)</div>
+      <canvas id="legend-bar" width="240" height="12"></canvas>
+      <div class="legend-ticks" id="legend-ticks"></div>
+    </div>
+    <div class="info-box">
+      <div class="info-title">동 정보</div>
+      <div class="hover-card" id="hover-card">
+        <div class="dong-name" id="hc-dong"></div>
+        <div class="gu-name" id="hc-gu"></div>
+        <div class="stat-row">
+          <span class="stat-label">8회 득표율</span>
+          <span class="stat-val" id="hc-r8"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">9회 득표율</span>
+          <span class="stat-val" id="hc-r9"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">득표율 증감</span>
+          <span class="stat-val" id="hc-delta"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">8회 득표수</span>
+          <span class="stat-val" id="hc-v8"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">9회 득표수</span>
+          <span class="stat-val" id="hc-v9"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">득표수 증감</span>
+          <span class="stat-val" id="hc-vdelta"></span>
+        </div>
+      </div>
+      <div class="top-list" id="top-list"></div>
+    </div>
+  </aside>
+</main>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const GEO_URL  = "public/geo/seoul-dong.geojson";
+const DATA_URL = "public/data/seoul_compare.json";
+
+let geoData, compareData, guData, currentView = "delta", currentLevel = "dong";
+let colorScale, valueAccessor;
+
+// ── 색상 스케일 ────────────────────────────────────────────────────
+const COLORS = {
+  r8:     d3.scaleSequential(d3.interpolateRdBu).domain([80, 20]),
+  r9:     d3.scaleSequential(d3.interpolateRdBu).domain([80, 20]),
+  delta:  d3.scaleDiverging(d3.interpolateRdBu).domain([10, 0, -30]),
+  vdelta: d3.scaleDiverging(d3.interpolateRdBu).domain([7000, 0, -4000]),
+  v8:     d3.scaleSequential(d3.interpolateOrRd).domain([0, 12000]),
+  v9:     d3.scaleSequential(d3.interpolateOrRd).domain([0, 12000]),
+  vpos:   d3.scaleSequential(d3.interpolateOrRd).domain([0, 7000]),
+};
+
+const LABELS = {
+  r8:     "8회 득표율 (%)",
+  r9:     "9회 득표율 (%)",
+  delta:  "득표율 증감 (%p)",
+  vdelta: "득표수 증감 (표)",
+  v8:     "8회 득표수 (표)",
+  v9:     "9회 득표수 (표)",
+  vpos:   "득표수 증가량 (표) — 증가 지역만",
+};
+
+const TICKS = {
+  r8:     [20, 30, 40, 50, 60, 70, 80],
+  r9:     [20, 30, 40, 50, 60, 70, 80],
+  delta:  [10, 5, 0, -10, -20, -30],
+  vdelta: [7000, 4000, 2000, 0, -2000, -4000],
+  v8:     [0, 3000, 6000, 9000, 12000],
+  v9:     [0, 3000, 6000, 9000, 12000],
+  vpos:   [0, 1000, 2000, 4000, 7000],
+};
+
+const ACCESSORS = {
+  r8:     d => d?.r8?.오세훈율 ?? null,
+  r9:     d => d?.r9?.오세훈율 ?? null,
+  delta:  d => d?.득표율증감 ?? null,
+  vdelta: d => d?.득표수증감 ?? null,
+  v8:     d => d?.r8?.오세훈 ?? null,
+  v9:     d => d?.r9?.오세훈 ?? null,
+  vpos:   d => d?.득표수증감 ?? null,
+};
+
+// ── 데이터 로드 ────────────────────────────────────────────────────
+Promise.all([
+  d3.json(GEO_URL),
+  d3.json(DATA_URL),
+]).then(([geo, cmp]) => {
+  geoData = geo;
+  compareData = cmp.data;
+  guData = cmp.guData;
+  buildSummary(cmp.data);
+  render();
+  buildTopList(compareData, currentView);
+}).catch(err => {
+  document.querySelector(".map-area").innerHTML =
+    `<div style="padding:40px;color:#c00;font-size:0.9rem">데이터 로드 실패: ${err.message}<br><br>로컬 서버를 통해 실행해 주세요:<br><code>npx serve .</code> 또는 <code>python -m http.server 8080</code></div>`;
+});
+
+// ── 요약 칩 ────────────────────────────────────────────────────────
+function buildSummary(data) {
+  const vals = Object.values(data);
+  const avg = (vals.reduce((s, d) => s + d.득표율증감, 0) / vals.length).toFixed(1);
+  const pos = vals.filter(d => d.득표율증감 > 0).length;
+  const neg = vals.filter(d => d.득표율증감 < 0).length;
+  const r8avg = (vals.reduce((s,d) => s+d.r8.오세훈율, 0)/vals.length).toFixed(1);
+  const r9avg = (vals.reduce((s,d) => s+d.r9.오세훈율, 0)/vals.length).toFixed(1);
+
+  const chips = document.getElementById("summary-chips");
+  chips.innerHTML = `<div class="chip">전체 ${vals.length}개 동</div>`;
+}
+
+// ── 뷰·레벨에 맞는 색상 스케일 반환 ─────────────────────────────
+function getScale(view) {
+  if ((view === "v8" || view === "v9") && currentLevel === "gu")
+    return d3.scaleSequential(d3.interpolateOrRd).domain([0, 200000]);
+  if (view === "vpos" && currentLevel === "gu")
+    return d3.scaleSequential(d3.interpolateOrRd).domain([0, 15000]);
+  return COLORS[view];
+}
+function getTicks(view) {
+  if ((view === "v8" || view === "v9") && currentLevel === "gu")
+    return [0, 50000, 100000, 150000, 200000];
+  if (view === "vpos" && currentLevel === "gu")
+    return [0, 3000, 6000, 9000, 15000];
+  return TICKS[view];
+}
+
+// vpos 뷰용 fill: 증가(양수)만 색상, 나머지는 연회색
+function getFill(v, scale) {
+  if (currentView === "vpos") return (v !== null && v > 0) ? scale(v) : "#e0e0e0";
+  return v !== null ? scale(v) : "#ddd";
+}
+
+// ── 지도 렌더 ─────────────────────────────────────────────────────
+function render() {
+  const svg = d3.select("#map-svg");
+  svg.selectAll("*").remove();
+
+  const W = svg.node().clientWidth;
+  const H = svg.node().clientHeight;
+
+  const proj = d3.geoMercator().fitSize([W, H], geoData);
+  const pathGen = d3.geoPath().projection(proj);
+  const scale = getScale(currentView);
+  const accessor = ACCESSORS[currentView];
+
+  const g = svg.append("g");
+
+  // 구 경계선 강조용 그룹 (나중에 위에 그림)
+  const pathsG = g.append("g").attr("class", "paths");
+  const borderG = g.append("g").attr("class", "borders");
+
+  pathsG.selectAll("path")
+    .data(geoData.features)
+    .join("path")
+    .attr("class", "dong-path")
+    .attr("d", pathGen)
+    .attr("fill", f => {
+      if (currentLevel === "gu") {
+        const gd = guData?.[f.properties.sggnm];
+        return getFill(accessor(gd), scale);
+      }
+      const d = compareData[f.properties.adm_cd];
+      return getFill(accessor(d), scale);
+    })
+    .on("mousemove", (event, f) => {
+      if (currentLevel === "gu") {
+        const gd = guData?.[f.properties.sggnm];
+        showTooltipGu(event, f.properties.sggnm, gd);
+        showCardGu(f.properties.sggnm, gd);
+      } else {
+        const d = compareData[f.properties.adm_cd];
+        showTooltip(event, f, d);
+        showCard(f, d);
+      }
+    })
+    .on("mouseleave", hideTooltip);
+
+  // 구 경계선
+  buildGuBorders(geoData, borderG, pathGen);
+
+  // 구 모드: 구 이름 레이블
+  if (currentLevel === "gu") {
+    const guGroups = d3.group(geoData.features, f => f.properties.sggnm);
+    const labelsG = g.append("g").attr("class", "gu-labels");
+    for (const [gu, feats] of guGroups) {
+      const cx = d3.mean(feats, f => pathGen.centroid(f)[0]);
+      const cy = d3.mean(feats, f => pathGen.centroid(f)[1]);
+      if (isNaN(cx) || isNaN(cy)) continue;
+      labelsG.append("text")
+        .attr("x", cx).attr("y", cy)
+        .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+        .attr("font-size", "9px").attr("font-weight", "600")
+        .attr("fill", "#222").attr("pointer-events", "none")
+        .attr("paint-order", "stroke")
+        .attr("stroke", "rgba(255,255,255,0.7)").attr("stroke-width", "2.5px")
+        .text(gu.replace("구", ""));
+    }
+  }
+
+  // 줌
+  const zoom = d3.zoom()
+    .scaleExtent([0.8, 12])
+    .on("zoom", e => g.attr("transform", e.transform));
+  svg.call(zoom);
+
+  updateLegend();
+  buildTopList(compareData, currentView);
+}
+
+// ── 구 경계선 ──────────────────────────────────────────────────────
+function buildGuBorders(geo, g, pathGen) {
+  const guGroups = d3.group(geo.features, f => f.properties.sggnm);
+  for (const [gu, feats] of guGroups) {
+    const merged = { type: "FeatureCollection", features: feats };
+    g.append("path")
+      .datum(merged)
+      .attr("d", pathGen)
+      .attr("fill", "none")
+      .attr("stroke", "#555")
+      .attr("stroke-width", 0.8)
+      .attr("stroke-linejoin", "round");
+  }
+}
+
+// ── 범례 ─────────────────────────────────────────────────────────
+function updateLegend() {
+  const scale = getScale(currentView);
+  const ticks = getTicks(currentView);
+  document.getElementById("legend-title").textContent = LABELS[currentView];
+
+  const canvas = document.getElementById("legend-bar");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width;
+  for (let i = 0; i < W; i++) {
+    const t = i / (W - 1);
+    const v = ticks[0] + (ticks[ticks.length-1] - ticks[0]) * t;
+    ctx.fillStyle = scale(v);
+    ctx.fillRect(i, 0, 1, 12);
+  }
+
+  const ticksEl = document.getElementById("legend-ticks");
+  const fmtTick = t => {
+    const abs = Math.abs(t);
+    const sign = t > 0 ? '+' : t < 0 ? '-' : '';
+    if (abs >= 10000) return sign + (abs / 10000).toFixed(abs % 10000 === 0 ? 0 : 1) + '만';
+    return (t > 0 ? '+' : '') + t.toLocaleString();
+  };
+  ticksEl.innerHTML = ticks.map(t => `<span>${fmtTick(t)}</span>`).join("");
+}
+
+// ── 툴팁 ─────────────────────────────────────────────────────────
+const tooltip = document.getElementById("tooltip");
+function showTooltip(event, f, d) {
+  if (!d) return;
+  const v = ACCESSORS[currentView](d);
+  const label = LABELS[currentView];
+  let vStr = "-";
+  if (v !== null) {
+    if (currentView === "delta")  vStr = (v > 0 ? "+" : "") + v.toFixed(2) + "%p";
+    else if (currentView === "vdelta" || currentView === "vpos") vStr = (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "표";
+    else if (currentView === "v8" || currentView === "v9") vStr = Math.round(v).toLocaleString() + "표";
+    else vStr = v.toFixed(2) + "%";
+  }
+  tooltip.textContent = `${f.properties.sggnm} ${d.dong}  ${label}: ${vStr}`;
+  tooltip.style.display = "block";
+  tooltip.style.left = (event.clientX + 12) + "px";
+  tooltip.style.top  = (event.clientY - 28) + "px";
+}
+function hideTooltip() { tooltip.style.display = "none"; }
+
+// ── 사이드 카드 ────────────────────────────────────────────────────
+function showCard(f, d) {
+  if (!d) return;
+  const card = document.getElementById("hover-card");
+  card.classList.add("visible");
+
+  document.getElementById("hc-dong").textContent = d.dong;
+  document.getElementById("hc-gu").textContent   = d.gu;
+
+  document.getElementById("hc-r8").textContent = d.r8.오세훈율.toFixed(2) + "%";
+  document.getElementById("hc-r9").textContent = d.r9.오세훈율.toFixed(2) + "%";
+
+  const delta = d.득표율증감;
+  const deltaEl = document.getElementById("hc-delta");
+  deltaEl.innerHTML = `<span class="delta-badge ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%p</span>`;
+
+  document.getElementById("hc-v8").textContent = d.r8.오세훈.toLocaleString() + "표";
+  document.getElementById("hc-v9").textContent = d.r9.오세훈.toLocaleString() + "표";
+  const vdelta = d.득표수증감;
+  const vdeltaEl = document.getElementById("hc-vdelta");
+  vdeltaEl.textContent = (vdelta >= 0 ? '+' : '') + vdelta.toLocaleString() + "표";
+  vdeltaEl.className   = "stat-val " + (vdelta >= 0 ? "up" : "down");
+}
+
+// ── 상단 리스트 ────────────────────────────────────────────────────
+function buildTopList(data, view) {
+  const fmt = v => {
+    if (view === "delta")  return (v > 0 ? "+" : "") + v.toFixed(2) + "%p";
+    if (view === "vdelta" || view === "vpos") return (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "표";
+    if (view === "v8" || view === "v9") return Math.round(v).toLocaleString() + "표";
+    return v.toFixed(2) + "%";
+  };
+  const colorVal = v => {
+    if (view === "delta" || view === "vdelta") return v >= 0 ? "#0066cc" : "#cc2200";
+    if (view === "v8" || view === "v9") {
+      const threshold = currentLevel === "gu" ? 100000 : 6000;
+      return v >= threshold ? "#cc4400" : "#888";
+    }
+    return v >= 50 ? "#cc2200" : "#0066cc";
+  };
+  const listEl = document.getElementById("top-list");
+
+  if (currentLevel === "gu" && guData) {
+    const accessor = ACCESSORS[view];
+    let vals = Object.values(guData)
+      .map(gd => ({ gd, v: accessor(gd) }))
+      .filter(x => x.v !== null)
+      .sort((a, b) => b.v - a.v);
+    if (view === "vpos") vals = vals.filter(x => x.v > 0);
+    const title = view === "vpos"
+      ? `득표수 증가 구 (${vals.length}개)`
+      : `구별 순위 (${vals.length}개 구)`;
+    listEl.innerHTML = `
+      <h4>${title}</h4>
+      ${vals.map((x, i) => `
+        <div class="top-item">
+          <span class="rank">${i+1}</span>
+          <span class="name">${x.gd.gu}</span>
+          <span class="val" style="color:${colorVal(x.v)}">${fmt(x.v)}</span>
+        </div>`).join("")}
+    `;
+    return;
+  }
+
+  const accessor = ACCESSORS[view];
+  let vals = Object.values(data)
+    .map(d => ({ d, v: accessor(d) }))
+    .filter(x => x.v !== null)
+    .sort((a, b) => b.v - a.v);
+
+  if (view === "vpos") {
+    const posVals = vals.filter(x => x.v > 0);
+    listEl.innerHTML = `
+      <h4>득표수 증가 동 (${posVals.length}개)</h4>
+      ${posVals.map((x, i) => `
+        <div class="top-item" data-code="${x.d.adm_cd}">
+          <span class="rank">${i+1}</span>
+          <span class="name">${x.d.gu.replace("구","")} ${x.d.dong}</span>
+          <span class="val" style="color:#cc4400">${fmt(x.v)}</span>
+        </div>`).join("")}
+    `;
+    return;
+  }
+
+  const top5 = vals.slice(0, 5);
+  const bot5 = vals.slice(-5).reverse();
+  listEl.innerHTML = `
+    <h4>상위 5개 동</h4>
+    ${top5.map((x, i) => `
+      <div class="top-item" data-code="${x.d.adm_cd}">
+        <span class="rank">${i+1}</span>
+        <span class="name">${x.d.gu.replace("구","") } ${x.d.dong}</span>
+        <span class="val" style="color:${colorVal(x.v)}">${fmt(x.v)}</span>
+      </div>`).join("")}
+    <h4 style="margin-top:10px">하위 5개 동</h4>
+    ${bot5.map((x, i) => `
+      <div class="top-item" data-code="${x.d.adm_cd}">
+        <span class="rank">${i+1}</span>
+        <span class="name">${x.d.gu.replace("구","") } ${x.d.dong}</span>
+        <span class="val" style="color:${colorVal(x.v)}">${fmt(x.v)}</span>
+      </div>`).join("")}
+  `;
+}
+
+// ── 구 모드 툴팁/카드 ─────────────────────────────────────────────
+function showTooltipGu(event, guName, gd) {
+  if (!gd) return;
+  const v = ACCESSORS[currentView](gd);
+  let vStr = "-";
+  if (v !== null) {
+    if (currentView === "delta")  vStr = (v > 0 ? "+" : "") + v.toFixed(2) + "%p";
+    else if (currentView === "vdelta" || currentView === "vpos") vStr = (v > 0 ? "+" : "") + Math.round(v).toLocaleString() + "표";
+    else if (currentView === "v8" || currentView === "v9") vStr = Math.round(v).toLocaleString() + "표";
+    else vStr = v.toFixed(2) + "%";
+  }
+  tooltip.textContent = `${guName}  ${LABELS[currentView]}: ${vStr}`;
+  tooltip.style.display = "block";
+  tooltip.style.left = (event.clientX + 12) + "px";
+  tooltip.style.top  = (event.clientY - 28) + "px";
+}
+
+function showCardGu(guName, gd) {
+  if (!gd) return;
+  const card = document.getElementById("hover-card");
+  card.classList.add("visible");
+  document.getElementById("hc-dong").textContent = guName;
+  document.getElementById("hc-gu").textContent   = `서울특별시 · ${gd.dongCount}개 동`;
+  document.getElementById("hc-r8").textContent = gd.r8.오세훈율.toFixed(2) + "%";
+  document.getElementById("hc-r9").textContent = gd.r9.오세훈율.toFixed(2) + "%";
+  const delta = gd.득표율증감;
+  document.getElementById("hc-delta").innerHTML =
+    `<span class="delta-badge ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}%p</span>`;
+  document.getElementById("hc-v8").textContent = gd.r8.오세훈.toLocaleString() + "표";
+  document.getElementById("hc-v9").textContent = gd.r9.오세훈.toLocaleString() + "표";
+  const vd = gd.득표수증감;
+  const vdEl = document.getElementById("hc-vdelta");
+  vdEl.textContent = (vd >= 0 ? "+" : "") + vd.toLocaleString() + "표";
+  vdEl.className = "stat-val " + (vd >= 0 ? "up" : "down");
+}
+
+// ── 뷰 전환 ─────────────────────────────────────────────────────
+document.getElementById("view-btns").addEventListener("click", e => {
+  const btn = e.target.closest("[data-view]");
+  if (!btn) return;
+  document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentView = btn.dataset.view;
+  if (geoData) render();
+});
+
+// ── 단위 전환 ─────────────────────────────────────────────────────
+function updateCoverageNote() {
+  const note = document.getElementById("coverage-note");
+  if (currentLevel === "gu") {
+    note.className = "coverage-note ok";
+    note.textContent = "✓ 구별: 거소·관외사전투표 포함 공식 합계 기준";
+  } else {
+    note.className = "coverage-note";
+    note.textContent = "⚠ 동별: 관내투표 기준 (관외사전투표 ~12% 미포함, 득표율 약 +1~2%p 과대)";
+  }
+}
+
+document.getElementById("level-btns").addEventListener("click", e => {
+  const btn = e.target.closest("[data-level]");
+  if (!btn) return;
+  document.querySelectorAll("[data-level]").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentLevel = btn.dataset.level;
+  updateCoverageNote();
+  if (geoData) render();
+});
+
+// 창 크기 변경 시 재렌더
+window.addEventListener("resize", () => { if (geoData) render(); });
+</script>
+</body>
+</html>
